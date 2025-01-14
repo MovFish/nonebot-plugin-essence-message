@@ -246,7 +246,7 @@ class RateLimiter:
         ):
             self.random_count[session_id] = 0
             self.first_time_count[session_id] = current_time
-            self.last_time_count[session_id] = current_time - 10
+            self.last_time_count[session_id] = current_time - 10 - self.cooldown
         self.random_count[session_id] += 1
         reach_CD = current_time - self.last_time_count[session_id] < self.cooldown
         self.last_time_count[session_id] = current_time
