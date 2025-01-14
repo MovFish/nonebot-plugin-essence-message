@@ -1,3 +1,4 @@
+import asyncio
 import aiosqlite
 import os
 from datetime import datetime
@@ -5,9 +6,6 @@ import time
 
 
 class DatabaseHandler:
-    def __init__(self, db_path: str):
-        self.db_path = db_path
-
     async def _create_table(self):
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
@@ -28,35 +26,57 @@ class DatabaseHandler:
                     time INTEGER
                 )"""
             )
-            await conn.execute(
-                """CREATE TABLE IF NOT EXISTS del_essence_data (
-                time INTEGER,
-                group_id INTEGER,
-                sender_id INTEGER,
-                operator_id INTEGER,
-                message_type TEXT,
-                message_data TEXT
-                )"""
-            )
             await conn.commit()
+
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+        asyncio.run(self._create_table())
 
     async def insert_data(self, data):
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
                 """INSERT INTO essence_data (time, group_id, sender_id, operator_id, message_type, message_data) 
                    VALUES (?, ?, ?, ?, ?, ?)""",
-                data,
+                (
+                    data["time"],
+                    data["group_id"],
+                    data["sender_id"],
+                    data["operator_id"],
+                    data["message_type"],
+                    data["message_data"],
+                ),
             )
             await conn.commit()
+        return True
 
-    async def insert_del_data(self, data):
+    async def delete_data(self, data):
+        data["message_data"] = data["message_data"][:100]
         async with aiosqlite.connect(self.db_path) as conn:
-            await conn.execute(
-                """INSERT INTO del_essence_data (time, group_id, sender_id, operator_id, message_type, message_data) 
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                data,
+            cursor = await conn.execute(
+                """SELECT rowid 
+                       FROM essence_data 
+                       WHERE group_id = ? 
+                       AND sender_id = ? 
+                       AND operator_id = ? 
+                       AND message_type = ? 
+                       AND message_data LIKE ? 
+                       LIMIT 1""",
+                (
+                    data["group_id"],
+                    data["sender_id"],
+                    data["operator_id"],
+                    data["message_type"],
+                    data["message_data"],
+                ),
             )
-            await conn.commit()
+            row = await cursor.fetchone()
+
+            if row:
+                rowid = row[0]
+                await conn.execute("DELETE FROM essence_data WHERE rowid = ?", (rowid,))
+                await conn.commit()
+                return True
+            return False
 
     async def fetch_all(self):
         async with aiosqlite.connect(self.db_path) as conn:
@@ -79,57 +99,70 @@ class DatabaseHandler:
             cursor = await conn.execute(
                 """SELECT * FROM essence_data 
                    WHERE group_id = ? 
-                   AND (message_type = 'text' OR message_type = 'image') 
                    ORDER BY RANDOM() LIMIT 1""",
                 (group_id,),
             )
             return await cursor.fetchone()
 
-    async def sender_rank(self, group_id):
+    async def sender_rank(self, group_id, sender_id):
         async with aiosqlite.connect(self.db_path) as conn:
-            cursor = await conn.execute(
-                """SELECT sender_id, COUNT(*) as count 
-                   FROM essence_data 
-                   WHERE group_id = ? 
-                   GROUP BY sender_id 
-                   ORDER BY count DESC 
-                   LIMIT 7""",
-                (group_id,),
-            )
-            return await cursor.fetchall()
+            # 获取所有排名的查询以便计算指定用户的排名
+            rank_query = """
+                WITH RankedData AS (
+                    SELECT 
+                        sender_id,
+                        COUNT(*) as count,
+                        RANK() OVER (ORDER BY COUNT(*) DESC) as rank
+                    FROM essence_data
+                    WHERE group_id = ?
+                    GROUP BY sender_id
+                )
+                SELECT sender_id, count, rank
+                FROM RankedData
+                WHERE rank <= 5 OR sender_id = ?
+                ORDER BY rank
+            """
+            
+            cursor = await conn.execute(rank_query, (group_id, sender_id))
+            results = await cursor.fetchall()
+            
+            return results
 
-    async def operator_rank(self, group_id):
+    async def operator_rank(self, group_id, sender_id):
         async with aiosqlite.connect(self.db_path) as conn:
-            cursor = await conn.execute(
-                """SELECT operator_id, COUNT(*) as count 
-                   FROM essence_data 
-                   WHERE group_id = ? 
-                   GROUP BY operator_id 
-                   ORDER BY count DESC 
-                   LIMIT 7""",
-                (group_id,),
-            )
-            return await cursor.fetchall()
-
-    async def delete_data_by_group(self, group_id):
-        async with aiosqlite.connect(self.db_path) as conn:
-            await conn.execute(
-                "DELETE FROM essence_data WHERE group_id = ?", (group_id,)
-            )
-            await conn.commit()
+            # 获取所有排名的查询以便计算指定用户的排名
+            rank_query = """
+                WITH RankedData AS (
+                    SELECT 
+                        operator_id,
+                        COUNT(*) as count,
+                        RANK() OVER (ORDER BY COUNT(*) DESC) as rank
+                    FROM essence_data
+                    WHERE group_id = ?
+                    GROUP BY operator_id
+                )
+                SELECT operator_id, count, rank
+                FROM RankedData
+                WHERE rank <= 5 OR operator_id = ?
+                ORDER BY rank
+            """
+            
+            cursor = await conn.execute(rank_query, (group_id, sender_id))
+            results = await cursor.fetchall()
+            
+            return results
 
     async def search_entries(self, group_id, keyword):
-        keyword_escaped = keyword.replace("%", "\%").replace("_", "\_")
-
+        keyword_escaped = keyword.replace("%", r"\%").replace("_", r"\_")
         async with aiosqlite.connect(self.db_path) as conn:
             cursor = await conn.execute(
                 """SELECT * FROM essence_data 
-                   WHERE group_id = ? 
-                   AND message_type = 'text' 
-                   AND LENGTH(message_data) <= 100 
-                   AND message_data LIKE ? ESCAPE '\\' 
-                   ORDER BY RANDOM() 
-                   LIMIT 5""",
+                WHERE group_id = ? 
+                AND message_type = 'text' 
+                AND LENGTH(message_data) <= 100 
+                AND message_data LIKE ? ESCAPE '\\' 
+                ORDER BY RANDOM() 
+                LIMIT 5""",
                 (group_id, f"%{keyword_escaped}%"),
             )
             return await cursor.fetchall()
@@ -186,74 +219,7 @@ class DatabaseHandler:
             )
             await conn.commit()
 
-    async def delete_matching_entry(self, group_id):
-        async with aiosqlite.connect(self.db_path) as conn:
-            cursor = await conn.execute(
-                """SELECT time, group_id, sender_id, operator_id, message_type, message_data 
-                   FROM del_essence_data 
-                   WHERE group_id = ? 
-                   ORDER BY time DESC 
-                   LIMIT 1""",
-                (group_id,),
-            )
-            latest_del_entry = await cursor.fetchone()
-            if not latest_del_entry:
-                return None
-
-            del_time, _, sender_id, operator_id, message_type, message_data = (
-                latest_del_entry
-            )
-            message_data = message_data[:50]
-
-            cursor = await conn.execute(
-                """SELECT * 
-                   FROM essence_data 
-                   WHERE group_id = ? 
-                   AND sender_id = ? 
-                   AND operator_id = ? 
-                   AND message_type = ? 
-                   AND message_data LIKE ? 
-                   ORDER BY ABS(time - ?) 
-                   LIMIT 1""",
-                (
-                    group_id,
-                    sender_id,
-                    operator_id,
-                    message_type,
-                    f"{message_data}%",
-                    del_time,
-                ),
-            )
-            matching_entry = await cursor.fetchone()
-            if matching_entry:
-                await conn.execute(
-                    """DELETE FROM essence_data 
-                       WHERE time = ? 
-                       AND group_id = ? 
-                       AND sender_id = ? 
-                       AND operator_id = ? 
-                       AND message_type = ? 
-                       AND message_data = ?""",
-                    matching_entry,
-                )
-                await conn.execute(
-                    """DELETE FROM del_essence_data 
-                       WHERE time = ? 
-                       AND group_id = ? 
-                       AND sender_id = ? 
-                       AND operator_id = ? 
-                       AND message_type = ? 
-                       AND message_data = ?""",
-                    matching_entry,
-                )
-                await conn.commit()
-            return matching_entry
-
-    async def check_entry_exists(self, data):
-        operator_time, group_id, sender_id, operator_id, message_type, message_data = (
-            data
-        )
-
+    async def entry_exists(self, data):
         async with aiosqlite.connect(self.db_path) as conn:
             cursor = await conn.execute(
                 """SELECT COUNT(*) 
@@ -262,16 +228,14 @@ class DatabaseHandler:
                    AND sender_id = ? 
                    AND operator_id = ? 
                    AND message_type = ? 
-                   AND message_data LIKE ? 
-                   AND time BETWEEN ? AND ?""",
+                   AND message_data LIKE ? """,
                 (
-                    group_id,
-                    sender_id,
-                    operator_id,
-                    message_type,
-                    message_data[:50],
-                    operator_time - 1000,
-                    operator_time + 1000,
+                    data["group_id"],
+                    data["sender_id"],
+                    data["operator_id"],
+                    data["message_type"],
+                    data["message_data"][:100],
                 ),
             )
-            return (await cursor.fetchone())[0] > 0
+            one = await cursor.fetchone()
+            return one != None and one[0] != 0
