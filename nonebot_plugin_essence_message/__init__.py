@@ -92,6 +92,7 @@ essence_cmd_admin = on_alconna(
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     block=False,
 )
+cleanning_flag = False
 
 
 # 10024
@@ -169,6 +170,9 @@ async def ___(event: NoticeEvent, bot: Bot):
             db, msg, bot, event.time, event.group_id, event.sender_id, event.operator_id
         ).add_to_dataset()
     elif event.sub_type == "delete":
+        global cleanning_flag
+        if cleanning_flag:
+            await essence_cmd.finish()
         await SaveMsg(
             db, msg, bot, event.time, event.group_id, event.sender_id, event.operator_id
         ).del_from_dataset()
@@ -383,6 +387,7 @@ async def export_cmd(event: GroupMessageEvent, bot: Bot):
     "clean",
 )
 async def clean_cmd(event: GroupMessageEvent, bot: Bot):
+    global cleanning_flag
     essencelist = await bot.get_essence_msg_list(group_id=event.group_id)
     await essence_cmd.send("开始抓取目前精华消息")
     savecount = 0
@@ -400,6 +405,7 @@ async def clean_cmd(event: GroupMessageEvent, bot: Bot):
             ).add_to_dataset()
         )
     await essence_cmd.send("开始清理")
+    cleanning_flag = True
     delcount = 0
     for essence in essencelist:
         try:
@@ -407,4 +413,5 @@ async def clean_cmd(event: GroupMessageEvent, bot: Bot):
             delcount += 1
         except Exception:
             continue
+    cleanning_flag = False
     await essence_cmd.finish(f"成功删除 {delcount}/{len(essencelist)} 条精华消息")

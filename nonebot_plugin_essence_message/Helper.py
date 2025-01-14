@@ -246,11 +246,9 @@ class RateLimiter:
         ):
             self.random_count[session_id] = 0
             self.first_time_count[session_id] = current_time
-            self.last_time_count[session_id] = current_time
+            self.last_time_count[session_id] = current_time - 10
         self.random_count[session_id] += 1
-        reach_CD = (
-            current_time - self.last_time_count[session_id] < self.cooldown
-        )
+        reach_CD = current_time - self.last_time_count[session_id] < self.cooldown
         self.last_time_count[session_id] = current_time
 
         return self.random_count[session_id] > self.limit or reach_CD
@@ -385,11 +383,15 @@ class SendMsg:
 
     async def get_msg(self) -> Union[MessageSegment, Message]:
         if self.data.message_type == "at":
-            result = MessageSegment.text(f"@{await self.get_name(self.data.contain_msg)} ")
+            result = MessageSegment.text(
+                f"@{await self.get_name(self.data.contain_msg)} "
+            )
         elif self.data.message_type == "image":
             result = MessageSegment.image(file=cast(str, self.data.contain_msg))
         elif self.data.message_type == "text":
-            content = "" if self.data.contain_msg is None else str(self.data.contain_msg)
+            content = (
+                "" if self.data.contain_msg is "None" else str(self.data.contain_msg)
+            )
             result = MessageSegment.text(content)
         elif self.data.message_type == "reply":
             result = (
