@@ -155,13 +155,13 @@ trio = ["trio (>=0.22.0,<1.0)"]
 
 [[package]]
 name = "httpx"
-version = "0.27.2"
+version = "0.28.1"
 description = "The next generation HTTP client."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "httpx-0.27.2-py3-none-any.whl", hash = "sha256:7bb2708e112d8fdd7829cd4243970f0c223274051cb35ee80c03301ee29a3df0"},
-    {file = "httpx-0.27.2.tar.gz", hash = "sha256:f7c2be1d2f3c3c3160d441802406b206c2b76f5947b11115e6df10c6c65e66c2"},
+    {file = "httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"},
+    {file = "httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"},
 ]
 
 [package.dependencies]
@@ -169,7 +169,6 @@ anyio = "*"
 certifi = "*"
 httpcore = "==1.*"
 idna = "*"
-sniffio = "*"
 
 [package.extras]
 brotli = ["brotli", "brotlicffi"]
@@ -444,23 +443,23 @@ typing-extensions = ">=4.0.0,<5.0.0"
 
 [[package]]
 name = "nonebot-plugin-alconna"
-version = "0.51.4"
+version = "0.54.2"
 description = "Alconna Adapter for Nonebot"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "nonebot_plugin_alconna-0.51.4-py3-none-any.whl", hash = "sha256:9d31e537eb35e45a3753ad5d95dc0359f777269d6ce7e39fa74d515cad9a0981"},
-    {file = "nonebot_plugin_alconna-0.51.4.tar.gz", hash = "sha256:a43720a497c4fefb0da89e8d9996f8261bb0e92f70a991f2f4fd14c8ed628995"},
+    {file = "nonebot_plugin_alconna-0.54.2-py3-none-any.whl", hash = "sha256:ab9a1a5f0f8c9a30ba57a49bed5d3e9c3f761ea5954cbafb15bcd2aa9c7d5507"},
+    {file = "nonebot_plugin_alconna-0.54.2.tar.gz", hash = "sha256:0216da3bc2e5f8b4c4c44c2701f8f0a536d35ea0db79e708cc2ecd002b57ace6"},
 ]
 
 [package.dependencies]
-arclet-alconna = ">=1.8.25"
-arclet-alconna-tools = ">=0.7.9"
+arclet-alconna = ">=1.8.35,<2.0"
+arclet-alconna-tools = ">=0.7.10"
 importlib-metadata = ">=4.13.0"
-nepattern = ">=0.7.4"
+nepattern = ">=0.7.7,<1.0"
 nonebot-plugin-waiter = ">=0.6.0"
 nonebot2 = ">=2.3.0"
-tarina = ">=0.5.5"
+tarina = ">=0.6.8,<0.7"
 
 [[package]]
 name = "nonebot-plugin-localstore"
@@ -1072,4 +1071,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<4.0"
-content-hash = "ab10bdfc33fca4fa7429e979a9869aa0994422f9a1e62c795374d2c6e8de0c04"
+content-hash = "bb293636d3a07252fa754725638c24aeac49388be37cabe5443a57c33d284fb7"
