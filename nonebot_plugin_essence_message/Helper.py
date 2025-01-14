@@ -144,7 +144,7 @@ async def format_msg(raw_msg: dict[str, Any], bot: "Bot") -> MessageResult:
 
         elif msg_type == "at":
             data = msg_part["data"]
-            re = ("at", data["qq_id"])
+            re = ("at", data["qq"])
 
         elif msg_type == "reply":
             data = msg_part["data"]
