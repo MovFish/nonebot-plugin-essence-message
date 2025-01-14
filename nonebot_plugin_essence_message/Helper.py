@@ -389,7 +389,8 @@ class SendMsg:
         elif self.data.message_type == "image":
             result = MessageSegment.image(file=cast(str, self.data.contain_msg))
         elif self.data.message_type == "text":
-            result = MessageSegment.text(cast(str, self.data.contain_msg))
+            content = "" if self.data.contain_msg is None else str(self.data.contain_msg)
+            result = MessageSegment.text(content)
         elif self.data.message_type == "reply":
             result = (
                 MessageSegment.text("{{回复 ")
