@@ -60,7 +60,7 @@ _✨ 用于整理精华消息 ✨_
 |           配置项            | 必填  | 默认值 |                                                     说明                                                     |
 | :-------------------------: | :---: | :----: | :----------------------------------------------------------------------------------------------------------: |
 |    essence_random_limit     |  否   |   5    |                                     `essence random` 指令的使用次数上限                                      |
-|      essence_random_CD      |  否   |   5    |                                   `essence random` 指令的使用次数冷却时间                                    |
+|      essence_random_cooldown      |  否   |   5    |                                   `essence random` 指令的使用次数冷却时间                                    |
 |    essence_enable_groups    |  否   |  all   |                                 启用群号列表，默认为 `all` 表示所有群都启用                                  |
 | good_essence_enable_groups  |  否   |   []   | 是否启用n赞加精功能,会对点赞数超过good_bound的消息自动加精,默认不启用 |
 |         good_bound          |  否   |   3    |                                                     如上                                                     |

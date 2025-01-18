@@ -115,7 +115,7 @@ class GoodCounter:
         return self.goodmap[message_session] >= self.good_bound
 
 
-MessageType = Literal["text", "image", "at", "reply", "group"]
+MessageType = Literal["text", "image", "at", "reply", "group", "face"]
 
 
 MessageResult = Tuple[MessageType, str]
@@ -145,6 +145,10 @@ async def format_msg(raw_msg: dict[str, Any], bot: "Bot") -> MessageResult:
         elif msg_type == "at":
             data = msg_part["data"]
             re = ("at", data["qq"])
+
+        elif msg_type == "face":
+            data = msg_part["data"]
+            re = ("face", data["id"])
 
         elif msg_type == "reply":
             data = msg_part["data"]
@@ -247,11 +251,12 @@ class RateLimiter:
             self.random_count[session_id] = 0
             self.first_time_count[session_id] = current_time
             self.last_time_count[session_id] = current_time - 10 - self.cooldown
-        self.random_count[session_id] += 1
-        reach_CD = current_time - self.last_time_count[session_id] < self.cooldown
+        reach_CD = (current_time - self.last_time_count[session_id]) < self.cooldown
+        reach_limit = self.random_count[session_id] >= self.limit or reach_CD
         self.last_time_count[session_id] = current_time
+        self.random_count[session_id] += int(not reach_CD)
 
-        return self.random_count[session_id] > self.limit or reach_CD
+        return reach_limit
 
 
 class SendMsgData:
@@ -262,7 +267,6 @@ class SendMsgData:
         self.message_type = message_type
 
         def parse(input_str):
-            # 预处理输入字符串
             while input_str.startswith("[") and input_str.endswith("]"):
                 input_str = input_str[1:-1]
             input_str = "[" + input_str + "]"
@@ -292,7 +296,7 @@ class SendMsgData:
                     stack.pop()
                 else:
                     current += char
-            return [item for item in result if item]
+            return [item.strip().strip(",").strip() for item in result if item]
 
         if message_type == "group":
             self.contain_msg = []
@@ -308,9 +312,12 @@ class SendMsgData:
             if len(result) == 0:
                 self.contain_msg = SendMsgData("text", "")
             else:
-                rust = ""
-                for i in range(1, len(result)):
-                    rust += result[i] + ","
+                rust: str = ""
+                if result[0] == "group":
+                    for i in range(1, len(result)):
+                        rust += result[i] + ","
+                else:
+                    rust = result[1]
                 self.contain_msg = SendMsgData(result[0], rust)
         else:
             self.contain_msg = data
@@ -336,7 +343,7 @@ async def get_name(db: DatabaseHandler, bot: Bot, group_id: int, id: int) -> str
         except:
             return "<unknown>"
     else:
-        if ti % 10 <= 4:
+        if ti % 10 <= 3:
             try:
                 sender = await asyncio.wait_for(
                     bot.get_group_member_info(
@@ -372,47 +379,51 @@ class SendMsg:
         db: DatabaseHandler,
         bot: "Bot",
         group_id: int,
+        depth: int = 0,
     ) -> None:
         self.data = data
         self.db = db
         self.bot = bot
         self.group_id = group_id
+        self.depth = depth
 
-    async def get_name(self, id) -> str:
+    async def get_name(self, id: int) -> str:
         return await get_name(self.db, self.bot, self.group_id, id)
 
     async def get_msg(self) -> Union[MessageSegment, Message]:
         if self.data.message_type == "at":
             result = MessageSegment.text(
-                f"@{await self.get_name(self.data.contain_msg)} "
+                f"@{await self.get_name(int(cast(str, self.data.contain_msg)))} "
             )
         elif self.data.message_type == "image":
             result = MessageSegment.image(file=cast(str, self.data.contain_msg))
         elif self.data.message_type == "text":
             content = (
-                "" if self.data.contain_msg is "None" else str(self.data.contain_msg)
+                "" if self.data.contain_msg == "None" else str(self.data.contain_msg)
             )
             result = MessageSegment.text(content)
         elif self.data.message_type == "reply":
-            result = (
-                MessageSegment.text("{{回复 ")
-                + await SendMsg(
-                    cast(SendMsgData, self.data.contain_msg),
-                    self.db,
-                    self.bot,
-                    self.group_id,
-                ).get_msg()
-                + MessageSegment.text("}}\n")
-            )
+            result = await SendMsg(
+                cast(SendMsgData, self.data.contain_msg),
+                self.db,
+                self.bot,
+                self.group_id,
+                depth=self.depth,
+            ).get_msg() + MessageSegment.text(("\n" + ">" * self.depth + " "))
         elif self.data.message_type == "group":
             resul: List[Union[MessageSegment, Message]] = []
             for msg in cast(list[SendMsgData], self.data.contain_msg):
                 resul.append(
-                    await SendMsg(msg, self.db, self.bot, self.group_id).get_msg()
+                    await SendMsg(
+                        msg, self.db, self.bot, self.group_id, depth=self.depth + 1
+                    ).get_msg()
                 )
             result = resul[0]
             for i in range(1, len(resul)):
                 result = result + resul[i]
+        elif self.data.message_type == "face":
+            result = MessageSegment.face(int(cast(str, self.data.contain_msg)))
+
         return result
 
 

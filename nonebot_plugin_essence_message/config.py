@@ -7,7 +7,7 @@ from nonebot_plugin_localstore import get_data_file, get_data_dir, get_cache_dir
 
 class config(BaseModel):
     essence_random_limit: int = 5
-    essence_random_CD: int = 5
+    essence_random_cooldown: int = 5
     essence_enable_groups: list = ["all"]
     good_essence_enable_groups: list = []
     whale_essnece_enable_groups: list = []

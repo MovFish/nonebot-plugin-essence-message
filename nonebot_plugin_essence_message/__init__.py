@@ -39,7 +39,7 @@ __plugin_meta__ = PluginMetadata(
     description="用于整理精华消息",
     usage=("自动存储精华消息备份并提供一些查询功能"),
     type="application",
-    homepage="https://github.com/BEISNWKZNAN/nonebot-plugin-essence-message",
+    homepage="https://github.com/MovFish/nonebot-plugin-essence-message",
     config=config,
     supported_adapters={"~onebot.v11"},
 )
@@ -52,7 +52,7 @@ def trigger_rule(event: Union[GroupMessageEvent, NoticeEvent]) -> bool:
 cfg = get_plugin_config(config)
 db = DatabaseHandler(str(config.db()))
 goodcount = GoodCounter(config.cache() / "good_cache.json", cfg.good_bound)
-ratelimiter = RateLimiter(cfg.essence_random_limit, 43200, cfg.essence_random_CD)
+ratelimiter = RateLimiter(cfg.essence_random_limit, 43200, cfg.essence_random_cooldown)
 
 
 whale_essnece = on_type(

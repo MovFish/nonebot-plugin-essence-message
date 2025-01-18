@@ -226,13 +226,11 @@ class DatabaseHandler:
                    FROM essence_data 
                    WHERE group_id = ? 
                    AND sender_id = ? 
-                   AND operator_id = ? 
                    AND message_type = ? 
                    AND message_data LIKE ? """,
                 (
                     data["group_id"],
                     data["sender_id"],
-                    data["operator_id"],
                     data["message_type"],
                     data["message_data"][:100],
                 ),
