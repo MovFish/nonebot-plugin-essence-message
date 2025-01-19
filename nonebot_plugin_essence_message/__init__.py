@@ -1,7 +1,7 @@
 from asyncio import gather
 from typing import Union
 
-from nonebot import get_plugin_config, on_type
+from nonebot import get_plugin_config, on_notice, on_type
 from nonebot.adapters.onebot.v11 import (
     NoticeEvent,
     MessageSegment,
@@ -45,8 +45,32 @@ __plugin_meta__ = PluginMetadata(
 )
 
 
-def trigger_rule(event: Union[GroupMessageEvent, NoticeEvent]) -> bool:
+def essence_enable_rule(event: Union[GroupMessageEvent, NoticeEvent]) -> bool:
     return (int(event.group_id) in cfg.essence_enable_groups) or (str(event.group_id) in cfg.essence_enable_groups) or ("all" in cfg.essence_enable_groups)  # type: ignore
+
+
+def whale_essnece_rule(event: NoticeEvent):
+    try:
+        ReactWhaleNoticeEvent(**event.model_dump())
+        return essence_enable_rule(event)
+    except:
+        return False
+
+
+def essence_set_rule(event: NoticeEvent):
+    try:
+        EssenceEvent(**event.model_dump())
+        return essence_enable_rule(event)
+    except:
+        return False
+
+
+def trigood_rule(event: NoticeEvent):
+    try:
+        ReactGoodNoticeEvent(**event.model_dump())
+        return essence_enable_rule(event)
+    except:
+        return False
 
 
 cfg = get_plugin_config(config)
@@ -55,15 +79,14 @@ goodcount = GoodCounter(config.cache() / "good_cache.json", cfg.good_bound)
 ratelimiter = RateLimiter(cfg.essence_random_limit, 43200, cfg.essence_random_cooldown)
 
 
-whale_essnece = on_type(
-    (NoticeEvent,),
-    rule=trigger_rule,
+whale_essnece = on_notice(
+    rule=whale_essnece_rule,
     priority=9,
     permission=NoticePermission,
     block=False,
 )
-essence_set = on_type((NoticeEvent,), rule=trigger_rule, priority=10, block=False)
-trigood = on_type((NoticeEvent,), rule=trigger_rule, priority=11, block=False)
+essence_set = on_notice(rule=essence_set_rule, priority=10, block=False)
+trigood = on_notice(rule=trigood_rule, priority=11, block=False)
 
 essence_cmd = on_alconna(
     Alconna(
@@ -73,7 +96,7 @@ essence_cmd = on_alconna(
         Subcommand("search", Args["keyword", str]),
         Subcommand("rank", Args["type", str]),
     ),
-    rule=trigger_rule,
+    rule=essence_enable_rule,
     priority=5,
     block=False,
 )
@@ -87,7 +110,7 @@ essence_cmd_admin = on_alconna(
         Subcommand("saveall"),
         Subcommand("clean"),
     ),
-    rule=trigger_rule,
+    rule=essence_enable_rule,
     priority=6,
     permission=SUPERUSER | GROUP_ADMIN | GROUP_OWNER,
     block=False,
