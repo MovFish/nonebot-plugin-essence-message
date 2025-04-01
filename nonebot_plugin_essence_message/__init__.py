@@ -74,8 +74,8 @@ def trigood_rule(event: NoticeEvent):
 
 
 cfg = get_plugin_config(config)
-db = DatabaseHandler(str(config.db()))
-goodcount = GoodCounter(config.cache() / "good_cache.json", cfg.good_bound)
+db = DatabaseHandler(str(cfg.db()))
+goodcount = GoodCounter(cfg.cache() / "good_cache.json", cfg.good_bound)
 ratelimiter = RateLimiter(cfg.essence_random_limit, 43200, cfg.essence_random_cooldown)
 
 
@@ -124,7 +124,7 @@ async def _(event: NoticeEvent, bot: Bot):
     try:
         event = ReactWhaleNoticeEvent(**event.model_dump())
     except:
-        await essence_set.finish()
+        await whale_essnece.finish()
     if (
         int(event.group_id) in cfg.whale_essnece_enable_groups
         or str(event.group_id) in cfg.whale_essnece_enable_groups
@@ -170,7 +170,7 @@ async def _(event: NoticeEvent, bot: Bot):
                 is_add=False,
             )
     else:
-        await essence_set.finish()
+        await whale_essnece.finish()
 
 
 @essence_set.handle()
@@ -207,7 +207,7 @@ async def __(event: NoticeEvent, bot: Bot):
     try:
         event = ReactGoodNoticeEvent(**event.model_dump())
     except:
-        await essence_set.finish()
+        await trigood.finish()
     if (
         int(event.group_id) in cfg.good_essence_enable_groups
         or str(event.group_id) in cfg.good_essence_enable_groups
@@ -391,7 +391,7 @@ async def fetchall_cmd(event: GroupMessageEvent, bot: Bot):
 )
 async def sevaall_cmd(event: GroupMessageEvent, bot: Bot):
     essencelist = await bot.get_essence_msg_list(group_id=event.group_id)
-    savecount = await fetchpic(essencelist, config.img())
+    savecount = await fetchpic(essencelist, cfg.img())
     await essence_cmd.finish(
         f"总共找到 {len(essencelist)} 条精华消息，成功保存 {savecount} 张图片"
     )
@@ -402,8 +402,11 @@ async def sevaall_cmd(event: GroupMessageEvent, bot: Bot):
 )
 async def export_cmd(event: GroupMessageEvent, bot: Bot):
     path = await db.export_group_data(event.group_id)
-    await bot.upload_group_file(group_id=event.group_id, file=path, name="essence.db")
-    await essence_cmd.finish(f"请检查群文件")
+    try:
+        await bot.upload_group_file(group_id=event.group_id, file=path, name="essence.db")
+        await essence_cmd.finish(f"请检查群文件")
+    except:
+        await essence_cmd.finish(f"上传失败, 请联系bot管理员获取在nonebot_plugin_localstore给出目录下, 名为{os.path.basename(path)}的文件")
 
 
 @essence_cmd_admin.assign(

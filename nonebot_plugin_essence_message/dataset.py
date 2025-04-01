@@ -9,23 +9,66 @@ class DatabaseHandler:
     async def _create_table(self):
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
-                """CREATE TABLE IF NOT EXISTS essence_data (
-                time INTEGER,
-                group_id INTEGER,
-                sender_id INTEGER,
-                operator_id INTEGER,
-                message_type TEXT,
-                message_data TEXT
-                )"""
-            )
-            await conn.execute(
-                """CREATE TABLE IF NOT EXISTS user_mapping (
-                    nickname TEXT,
+                """
+                CREATE TABLE IF NOT EXISTS essence_data (
+                    time INTEGER,
                     group_id INTEGER,
-                    user_id INTEGER,
-                    time INTEGER
+                    sender_id INTEGER,
+                    operator_id INTEGER,
+                    message_type TEXT,
+                    message_data TEXT
                 )"""
             )
+
+            cursor = await conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='user_mapping'"
+            )
+            table_exists = await cursor.fetchone()
+            # 迁移旧user_mapping表结构
+            if table_exists:
+                await conn.execute(
+                    """
+                    CREATE TEMPORARY TABLE temp_mapping AS
+                    SELECT nickname, group_id, user_id, MAX(time) as max_time
+                    FROM user_mapping
+                    GROUP BY nickname, group_id, user_id
+                """
+                )
+
+                await conn.execute("DROP TABLE user_mapping")  # 删除旧表
+                await conn.execute(
+                    """
+                    CREATE TABLE user_mapping (
+                        nickname TEXT NOT NULL,
+                        group_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        time INTEGER NOT NULL,
+                        UNIQUE(nickname, group_id, user_id)  -- 新增唯一约束
+                    )
+                """
+                )
+
+                await conn.execute(
+                    """
+                    INSERT INTO user_mapping
+                    SELECT nickname, group_id, user_id, max_time
+                    FROM temp_mapping
+                """
+                )
+                await conn.execute("DROP TABLE temp_mapping")
+            else:
+                await conn.execute(
+                    """
+                    CREATE TABLE user_mapping (
+                        nickname TEXT NOT NULL,
+                        group_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        time INTEGER NOT NULL,
+                        UNIQUE(nickname, group_id, user_id)
+                    )
+                """
+                )
+
             await conn.commit()
 
     def __init__(self, db_path: str):
@@ -106,7 +149,6 @@ class DatabaseHandler:
 
     async def sender_rank(self, group_id, sender_id):
         async with aiosqlite.connect(self.db_path) as conn:
-            # 获取所有排名的查询以便计算指定用户的排名
             rank_query = """
                 WITH RankedData AS (
                     SELECT 
@@ -122,15 +164,14 @@ class DatabaseHandler:
                 WHERE rank <= 5 OR sender_id = ?
                 ORDER BY rank
             """
-            
+
             cursor = await conn.execute(rank_query, (group_id, sender_id))
             results = await cursor.fetchall()
-            
+
             return results
 
     async def operator_rank(self, group_id, sender_id):
         async with aiosqlite.connect(self.db_path) as conn:
-            # 获取所有排名的查询以便计算指定用户的排名
             rank_query = """
                 WITH RankedData AS (
                     SELECT 
@@ -146,10 +187,10 @@ class DatabaseHandler:
                 WHERE rank <= 5 OR operator_id = ?
                 ORDER BY rank
             """
-            
+
             cursor = await conn.execute(rank_query, (group_id, sender_id))
             results = await cursor.fetchall()
-            
+
             return results
 
     async def search_entries(self, group_id, keyword):
@@ -214,8 +255,31 @@ class DatabaseHandler:
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
                 """INSERT INTO user_mapping (nickname, group_id, user_id, time) 
-                   VALUES (?, ?, ?, ?)""",
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(nickname, group_id, user_id) 
+                DO UPDATE SET time = excluded.time""",
                 (nickname, group_id, user_id, time),
+            )
+            await conn.commit()
+
+    async def clean_duplicates(self):
+        """清理重复数据，保留每个(nickname, group_id, user_id)的最新记录"""
+        async with aiosqlite.connect(self.db_path) as conn:
+            # 使用窗口函数清理旧数据
+            await conn.execute(
+                """
+                DELETE FROM user_mapping
+                WHERE rowid IN (
+                    SELECT rowid FROM (
+                        SELECT rowid,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY nickname, group_id, user_id
+                                ORDER BY time DESC
+                            ) AS rn
+                        FROM user_mapping
+                    ) WHERE rn > 1
+                )
+            """
             )
             await conn.commit()
 

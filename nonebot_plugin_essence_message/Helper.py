@@ -8,7 +8,6 @@ import httpx
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.adapters.onebot.v11 import NoticeEvent
 from nonebot.adapters.onebot.v11.message import Message
-from typing_extensions import override
 from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union, cast
 from nonebot.adapters.onebot.v11 import MessageSegment
 from nonebot.permission import Permission
@@ -216,6 +215,9 @@ class SaveMsg:
             "message_data": data[1],
         }
         if not await self.db.entry_exists(self.msg_data):
+            await get_name(
+                self.db, self.bot, self.group_id, self.sender_id, False
+            )  # 设精更新用户昵称
             return await self.db.insert_data(self.msg_data)
         else:
             return False
@@ -303,6 +305,8 @@ class SendMsgData:
             result = parse(data)
             for i in range(len(result)):
                 resul = parse(result[i])
+                if resul[0] == "text" and len(resul) == 1:
+                    resul.append(" ")
                 self.contain_msg.append(SendMsgData(resul[0], resul[1]))
             if len(self.contain_msg) == 1:
                 self.message_type = self.contain_msg[0].message_type
@@ -323,8 +327,10 @@ class SendMsgData:
             self.contain_msg = data
 
 
-async def get_name(db: DatabaseHandler, bot: Bot, group_id: int, id: int) -> str:
-    ti = time()
+async def get_name(
+    db: DatabaseHandler, bot: Bot, group_id: int, id: int, use_cache: bool = True
+) -> str:
+    ti = int(time())
     i = await db.get_latest_nickname(group_id, id)
     if i == None:
         try:
@@ -337,13 +343,13 @@ async def get_name(db: DatabaseHandler, bot: Bot, group_id: int, id: int) -> str
                 else sender["card"]
             )
             await db.insert_user_mapping(
-                name, sender["group_id"], sender["user_id"], int(ti)
+                name, sender["group_id"], sender["user_id"], ti
             )
             return name
         except:
             return "<unknown>"
     else:
-        if ti % 10 <= 3:
+        if not use_cache:
             try:
                 sender = await asyncio.wait_for(
                     bot.get_group_member_info(
@@ -360,7 +366,7 @@ async def get_name(db: DatabaseHandler, bot: Bot, group_id: int, id: int) -> str
                     name,
                     sender["group_id"],
                     sender["user_id"],
-                    int(ti),
+                    ti,
                 )
                 return name
             except:

@@ -13,14 +13,14 @@ class config(BaseModel):
     whale_essnece_enable_groups: list = []
     good_bound: int = 3
 
-    def db():
+    def db(self):
         PATH_DATA = get_data_file("essence_message", "essence_message.db")
         return PATH_DATA
 
-    def img():
+    def img(self):
         PATH_DATA = get_data_dir("essence_message")
         return PATH_DATA / "img"
 
-    def cache():
+    def cache(self):
         PATH_DATA = get_cache_dir("essence_message")
         return PATH_DATA
