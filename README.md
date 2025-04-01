@@ -34,7 +34,7 @@ _✨ 用于整理精华消息 ✨_
    - user_mapping 新增 `UNIQUE` 唯一性约束（nickname + group_id + user_id 组合）
 2. 程序启动时会自动完成数据库结构的转换
 3. 务必手动备份 SQLite 数据库文件, 数据库文件在nonebot_plugin_localstore给出的插件数据目录的中的essence_message子目录下, 文件名为essence_message.db
-4. 根据[Nonebot文档](https://nonebot.dev/docs/best-practice/data-storing)以下是插件数据目录    
+4. 根据[Nonebot文档](https://nonebot.dev/docs/best-practice/data-storing)以下是默认插件数据目录    
     - macOS: `~/Library/Application` Support/nonebot2
     - Unix: `~/.local/share/nonebot2` or in `$XDG_DATA_HOME`, if defined
     - Win XP (not roaming): `C:\Documents and Settings\<username>\Application Data\nonebot2`
