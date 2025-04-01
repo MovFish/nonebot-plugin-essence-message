@@ -12,7 +12,7 @@ from nonebot.adapters.onebot.v11 import GROUP_ADMIN, GROUP_OWNER
 from nonebot.adapters.onebot.v11.bot import Bot
 from nonebot.plugin import PluginMetadata
 from nonebot import require
-
+import os
 
 require("nonebot_plugin_alconna")
 from arclet.alconna import Alconna, Args, Subcommand
